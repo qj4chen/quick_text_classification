@@ -52,7 +52,7 @@ class QuickTextClassification:
         return cls(dataframe, *args, **kwargs)
 
     def preprocess_text(self):
-        from text_preprocessing import clean_text
+        from preprocessing import clean_text
         self.dataframe['text_all_in_one'] = clean_text(self.dataframe['text_all_in_one'])
 
     def concat_text_columns(self, return_numpy: bool = False):
@@ -85,7 +85,7 @@ class QuickTextClassification:
         else:
             raise NotImplementedError
 
-    def determine_optimal_num_clusters(self, min_num_cluster=1, max_num_cluster=10):
+    def determine_optimal_num_clusters(self, min_num_cluster=2, max_num_cluster=10):
         # todo: 目前还是需要画图观察，然后确定一个最佳的 num_cluster, 有待改进
         num_clusters = range(min_num_cluster, max_num_cluster + 1)
         sse = {}
@@ -109,11 +109,7 @@ class QuickTextClassification:
 
 
 if __name__ == "__main__":
-    df = pd.read_excel('./基金基础信息表.xlsx')
-    df.replace(r'\N', np.nan, inplace=True)
-    a = QuickTextClassification(dataframe=df, representation_algorithm='bow')
-    a.determine_optimal_num_clusters(1, 2)
-    print(a.text)
+    pass
 
 
 
