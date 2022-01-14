@@ -8,6 +8,8 @@ import jieba
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
+import torch
+from transformers import BertTokenizer, BertModel
 
 
 class QuickTextClassification:
@@ -17,7 +19,8 @@ class QuickTextClassification:
                  label_column: int or str = None,
                  representation_algorithm: str = 'bow',
                  cluster_algorithm: str = None,
-                 classification_algorithm: str = None
+                 classification_algorithm: str = None,
+                 bert_path: str = r"D:\pretrained_model\bert-base-chinese"
                  ):
         """supported algorithm: ['bow', 'tfidf', 'word2vec-sg','word2vec-cbow', 'bert']. if your desired algorithm is
         not implemented in QuickTextClassification, please use the features returned from """
@@ -42,6 +45,7 @@ class QuickTextClassification:
         self.representation_algorithm = representation_algorithm
         self.cluster_algorithm = cluster_algorithm
         self.classification_algorithm = classification_algorithm
+        self.bert_path = bert_path
 
     @classmethod
     def from_filepath(cls, filename, *args, **kwargs):
@@ -65,6 +69,8 @@ class QuickTextClassification:
             return self.text
 
     def extract_text_features(self):
+        if self.text is None:
+            self.concat_text_columns()
         if self.representation_algorithm in ['bow', 'tfidf']:
             if self.representation_algorithm == 'bow':
                 from sklearn.feature_extraction.text import CountVectorizer
@@ -72,8 +78,6 @@ class QuickTextClassification:
             else:
                 from sklearn.feature_extraction.text import TfidfVectorizer
                 model = TfidfVectorizer(ngram_range=(1, 3))
-            if self.text is None:
-                self.concat_text_columns()
             model.fit(self.text)
             return model.transform(self.text)
 
@@ -81,7 +85,40 @@ class QuickTextClassification:
             pass
 
         elif self.representation_algorithm == 'bert':
-            return
+            if self.bert_path:
+                tokenizer = BertTokenizer.from_pretrained(self.bert_path)
+                model = BertModel.from_pretrained(self.bert_path,
+                                                  output_hidden_states=True)
+            else:
+                tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
+                model = BertModel.from_pretrained('bert-base-chinese',
+                                                  output_hidden_states=True)
+            model.eval()
+            text_embeddings = []
+            MAX_LENGTH = min(max([len(h) for h in self.text]), 512)
+            NUM_EMBEDDING_LAYERS = 3
+            with torch.no_grad():
+                for sentence in self.text:
+                    inputs = tokenizer.encode_plus(sentence,
+                                                   padding='max_length',
+                                                   max_length=MAX_LENGTH,
+                                                   return_tensors='pt',
+                                                   truncation=True)
+                    outputs = model(**inputs)
+                    hidden_states = outputs[2]  # change to 2 if using BERT model, change to 1 if using automodel
+                    token_embeddings = torch.stack(hidden_states, dim=0)
+                    token_embeddings = torch.squeeze(token_embeddings, dim=1)
+                    token_embeddings = token_embeddings.permute(1, 0, 2)
+                    sentence_embedding = []
+                    for token in token_embeddings:
+                        cat_vec = torch.flatten(token[-NUM_EMBEDDING_LAYERS:])
+                        sentence_embedding.append(cat_vec)
+                    sentence_embedding = torch.vstack(sentence_embedding).mean(dim=0)
+                    text_embeddings.append(sentence_embedding)
+                text_embeddings = torch.stack(text_embeddings, dim=0).numpy()
+
+            return text_embeddings
+
         else:
             raise NotImplementedError
 
