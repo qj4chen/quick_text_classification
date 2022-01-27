@@ -11,3 +11,6 @@
 
 - [ ] 文本词性识别, 作为额外信息, 补充到tf-idf和bag-of-words等lexicon-level的表征算法中
 - [ ] 添加semantic-level的模型, 如:预训练word2vec, word2vec, bert
+
+todo:
+1. https://github.com/thisisandreeeee/ezcluster 自动求出KMeans最优的聚类数目，可能有用
